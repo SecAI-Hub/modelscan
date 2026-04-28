@@ -7,47 +7,59 @@ license = "Apache License 2.0"
 readme = "README.md"
 packages = [{ include = "modelscan" }]
 exclude = ["tests/*", "Makefile"]
+classifiers = [
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
 
 [tool.poetry.scripts]
 modelscan = "modelscan.cli:main"
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.13"
-click = "^8.1.3"
-numpy = ">=1.24.3"
-rich = ">=13.4.2,<15.0.0"
-tomlkit = ">=0.12.3,<0.14.0"
-h5py = { version = "^3.9.0", optional = true }
+python = ">=3.10,<3.15"
+click = ">=8.1.8,<9.0.0"
+numpy = ">=1.24.3,<3.0.0"
+rich = ">=13.9.4,<16.0.0"
+tomlkit = ">=0.12.3,<0.15.0"
+h5py = [
+    { version = ">=3.11.0,<3.15.0", optional = true, markers = "python_version < '3.14'" },
+    { version = ">=3.16.0,<4.0.0", optional = true, markers = "python_version >= '3.14'" },
+]
 
-# TODO: Add py3.12 once TF release supports
-tensorflow = { version = "^2.17", optional = true }
+# TensorFlow does not publish CPython 3.14 wheels yet. Keep the scanners optional
+# on Python 3.14 instead of blocking the rest of modelscan from installing.
+tensorflow = { version = ">=2.17,<2.22", optional = true, markers = "python_version < '3.14'" }
 
 [tool.poetry.extras]
 tensorflow = ["tensorflow"]
 h5py = ["h5py"]
 
 [tool.poetry.group.test.dependencies]
-pytest = ">=7.4,<9.0"
-bandit = { version = "1.8.3", extras = ["toml"] }
-mypy = "^1.4.1"
-requests = "^2.31.0"
-aiohttp = "^3.8.5"
+pytest = ">=8.4,<10.0"
+bandit = { version = ">=1.9.4,<2.0.0", extras = ["toml"] }
+mypy = ">=1.20,<2.0"
+requests = ">=2.32.5,<3.0.0"
+aiohttp = ">=3.13.5,<4.0.0"
 dill = ">=0.3.7,<0.5.0"
-types-requests = ">1.26"
-torch = "^2.7.0"
-tf-keras = "^2.20.1"
+types-requests = ">=2.33.0.20260408,<3.0.0"
+torch = ">=2.11,<3.0"
+tf-keras = { version = ">=2.21,<2.22", markers = "python_version < '3.14'" }
+pip-audit = ">=2.10.0,<3.0.0"
 
 
 [tool.poetry.group.dev.dependencies]
-dunamai = "^1.18.0"
-pre-commit = ">=3.3.3,<5.0.0"
-black = ">=23.7,<26.0"
+dunamai = ">=1.26.1,<2.0.0"
+pre-commit = ">=4.6.0,<5.0.0"
+black = ">=26.3.1,<27.0.0"
 
 [tool.poetry.group.prod.dependencies]
-dunamai = "^1.18.0"
+dunamai = ">=1.26.1,<2.0.0"
 
 [build-system]
-requires = ["poetry-core", "poetry-dynamic-versioning"]
+requires = ["poetry-core>=2.3.2,<3.0.0", "poetry-dynamic-versioning>=1.10.0,<2.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry-dynamic-versioning]
@@ -55,6 +67,9 @@ enable = true
 
 [tool.bandit]
 exclude_dirs = ["tests", "notebooks"]
+
+[tool.black]
+target-version = ["py310", "py311", "py312", "py313", "py314"]
 
 [tool.mypy]
 exclude = ["notebooks"]

@@ -3,6 +3,7 @@
 [![build](https://github.com/protectai/modelscan/actions/workflows/build.yml/badge.svg)](https://github.com/protectai/modelscan/actions/workflows/build.yml)
 [![black](https://github.com/protectai/modelscan/actions/workflows/black.yml/badge.svg)](https://github.com/protectai/modelscan/actions/workflows/black.yml)
 [![mypy](https://github.com/protectai/modelscan/actions/workflows/mypy.yml/badge.svg)](https://github.com/protectai/modelscan/actions/workflows/mypy.yml)
+[![pip-audit](https://github.com/protectai/modelscan/actions/workflows/pip-audit.yml/badge.svg)](https://github.com/protectai/modelscan/actions/workflows/pip-audit.yml)
 [![tests](https://github.com/protectai/modelscan/actions/workflows/test.yml/badge.svg)](https://github.com/protectai/modelscan/actions/workflows/test.yml)
 [![Supported Versions](https://img.shields.io/pypi/pyversions/modelscan.svg)](https://pypi.org/project/modelscan)
 [![pypi Version](https://img.shields.io/pypi/v/modelscan)](https://pypi.org/project/modelscan)
@@ -108,7 +109,7 @@ At present, ModelScan supports any Pickle derived format and many others:
 
 ### Installation
 
-ModelScan is installed on your systems as a Python package(Python 3.9 to 3.12 supported). As shown from above you can install
+ModelScan is installed on your systems as a Python package(Python 3.10 to 3.14 supported). As shown from above you can install
 it by running this in your terminal:
 
 ```bash
@@ -122,11 +123,13 @@ or `pyproject.toml` like this:
 modelscan = ">=0.1.1"
 ```
 
-Scanners for Tensorflow or HD5 formatted models require installation with extras:
+Scanners for TensorFlow or HD5 formatted models require installation with extras:
 
 ```bash
-pip install 'modelscan[ tensorflow, h5py ]'
+pip install 'modelscan[tensorflow,h5py]'
 ```
+
+The TensorFlow extra is installed only on Python versions where TensorFlow publishes compatible wheels. Core model scanning remains installable on Python 3.14 while TensorFlow-specific scanners report a dependency error if TensorFlow is unavailable.
 
 ### Using ModelScan via CLI
 

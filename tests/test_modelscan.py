@@ -1,5 +1,5 @@
 import aiohttp
-import bdb
+import copy
 import http.client
 import importlib
 import io
@@ -15,8 +15,6 @@ import socket
 import subprocess
 import sys
 import torch
-import tensorflow as tf
-import tf_keras as keras
 from typing import Any, List, Set, Dict
 from test_utils import (
     generate_dill_unsafe_file,
@@ -25,6 +23,15 @@ from test_utils import (
     PyTorchTestModel,
 )
 import zipfile
+
+tf: Any
+keras: Any
+try:
+    tf = importlib.import_module("tensorflow")
+    keras = importlib.import_module("tf_keras")
+except ImportError:
+    tf = None
+    keras = None
 
 from modelscan.modelscan import ModelScan
 from modelscan.cli import cli
@@ -43,6 +50,11 @@ from modelscan.settings import DEFAULT_SETTINGS
 from modelscan.model import Model
 
 settings: Dict[str, Any] = DEFAULT_SETTINGS
+
+
+def skip_without_tensorflow() -> None:
+    if tf is None or keras is None or MaliciousModule is None:
+        pytest.skip("TensorFlow test dependencies are not installed")
 
 
 class Malicious1:
@@ -90,13 +102,15 @@ class Malicious8:
         return sys.exit, (0,)
 
 
-class Malicious15:
-    def __reduce__(self) -> Any:
-        bd = bdb.Bdb()
-        return bdb.Bdb.run, (
-            bd,
-            'import os\nos.system("whoami")',
-        )
+def malicious15_gen() -> bytes:
+    return b"".join(
+        [
+            pickle.GLOBAL + b"bdb\nBdb\n",
+            pickle.POP,
+            pickle.GLOBAL + b"bdb\nBdb.run\n",
+            pickle.STOP,
+        ]
+    )
 
 
 def malicious12_gen() -> bytes:
@@ -282,7 +296,7 @@ def file_path(tmp_path_factory: Any) -> Any:
     initialize_pickle_file(f"{tmp}/data/malicious7.pkl", Malicious6(), 4)
     initialize_pickle_file(f"{tmp}/data/malicious8.pkl", Malicious7(), 4)
     initialize_pickle_file(f"{tmp}/data/malicious9.pkl", Malicious8(), 4)
-    initialize_pickle_file(f"{tmp}/data/malicious15.pkl", Malicious15(), 4)
+    initialize_data_file(f"{tmp}/data/malicious15.pkl", malicious15_gen())
 
     # Malicious Pickle from Capture-the-Flag challenge 'Misc/Safe Pickle' at https://imaginaryctf.org/Challenges
     # GitHub Issue: https://github.com/mmaitre314/picklescan/issues/22
@@ -340,6 +354,8 @@ def file_path(tmp_path_factory: Any) -> Any:
 
 @pytest.fixture(scope="session")
 def tensorflow_file_path(tmp_path_factory: Any) -> Any:
+    skip_without_tensorflow()
+
     # Create a simple model.
     inputs = keras.Input(shape=(32,))
     outputs = keras.layers.Dense(1)(inputs)
@@ -377,6 +393,8 @@ def keras_file_extensions() -> List[str]:
 
 @pytest.fixture(scope="session")
 def keras_file_path(tmp_path_factory: Any, keras_file_extensions: List[str]) -> Any:
+    skip_without_tensorflow()
+
     # Use Keras 2.0
     os.environ["TF_USE_LEGACY_KERAS"] = "1"
 
@@ -1644,3 +1662,37 @@ def test_main_defaultgroup(file_path: Any) -> None:
         pass
     finally:
         sys.argv = argv
+
+
+def test_scan_missing_path_reports_path_error(tmp_path: Any) -> None:
+    ms = ModelScan()
+
+    results = ms.scan(tmp_path / "missing.pkl")
+
+    assert results["errors"] == [
+        {
+            "category": "PATH",
+            "description": "Path is not valid",
+            "source": "missing.pkl",
+        }
+    ]
+
+
+def test_scan_zip_archive_member_limit(tmp_path: Any) -> None:
+    settings: Dict[str, Any] = copy.deepcopy(DEFAULT_SETTINGS)
+    settings["archive"]["max_members"] = 1
+    archive_path = tmp_path / "too_many_members.zip"
+
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("first.pkl", pickle.dumps(Malicious1(), protocol=4))
+        archive.writestr("second.pkl", pickle.dumps(Malicious1(), protocol=4))
+
+    ms = ModelScan(settings=settings)
+    results = ms.scan(archive_path)
+    skipped = results["summary"]["skipped"]["skipped_files"]
+
+    assert any(
+        skipped_file["category"] == "BAD_ZIP"
+        and "exceeding the configured limit" in skipped_file["description"]
+        for skipped_file in skipped
+    )

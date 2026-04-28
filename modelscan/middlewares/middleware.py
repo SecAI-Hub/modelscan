@@ -35,7 +35,7 @@ class MiddlewarePipeline:
 
         for path, params in middleware_settings.items():
             try:
-                (modulename, classname) = path.rsplit(".", 1)
+                modulename, classname = path.rsplit(".", 1)
                 imported_module = importlib.import_module(
                     name=modulename, package=classname
                 )

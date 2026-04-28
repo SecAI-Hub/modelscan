@@ -1,37 +1,52 @@
 import dill
+import importlib
 import os
 import pickle
 import struct
 from typing import Any, Tuple
 import torch
 import torch.nn as nn
-import tensorflow as tf
-import tf_keras as keras
+
+tf: Any
+keras: Any
+try:
+    tf = importlib.import_module("tensorflow")
+    keras = importlib.import_module("tf_keras")
+except ImportError:
+    tf = None
+    keras = None
 
 
-class MaliciousModule(keras.Model):  # type: ignore
-    def __init__(self, safe_model) -> None:  # type: ignore
-        super(MaliciousModule, self).__init__()
-        self.model = safe_model
+if tf is not None and keras is not None:
 
-    @tf.function(input_signature=[tf.TensorSpec(shape=(32, 32), dtype=tf.float32)])  # type: ignore
-    def call(self, x: float) -> Any:
-        # Some model prediction logic
-        res = self.model(x)
+    class _MaliciousModule(keras.Model):  # type: ignore[misc]
+        def __init__(self, safe_model) -> None:  # type: ignore
+            super(_MaliciousModule, self).__init__()
+            self.model = safe_model
 
-        # Write a file
-        tf.io.write_file(
-            "/tmp/aws_secret.txt",
-            "aws_access_key_id=<access_key_id>\naws_secret_access_key=<aws_secret_key>",
-        )
+        @tf.function(input_signature=[tf.TensorSpec(shape=(32, 32), dtype=tf.float32)])  # type: ignore
+        def call(self, x: float) -> Any:
+            # Some model prediction logic
+            res = self.model(x)
 
-        list_ds = tf.data.Dataset.list_files("/tmp/*.txt", shuffle=False)
+            # Write a file
+            tf.io.write_file(
+                "/tmp/aws_secret.txt",
+                "aws_access_key_id=<access_key_id>\naws_secret_access_key=<aws_secret_key>",
+            )
 
-        for file in list_ds:
-            tf.print("File found: " + file)
-            tf.print(tf.io.read_file(file))
+            list_ds = tf.data.Dataset.list_files("/tmp/*.txt", shuffle=False)
 
-        return res
+            for file in list_ds:
+                tf.print("File found: " + file)
+                tf.print(tf.io.read_file(file))
+
+            return res
+
+    MaliciousModule: Any = _MaliciousModule
+
+else:
+    MaliciousModule = None
 
 
 class PickleInject:

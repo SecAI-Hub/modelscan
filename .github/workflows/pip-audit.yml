@@ -1,4 +1,4 @@
-name: MYPY
+name: Dependency Audit
 
 on:
   push:
@@ -10,13 +10,18 @@ permissions:
   contents: read
 
 jobs:
-  mypy:
+  pip-audit:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.13", "3.14"]
+
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.14"
+          python-version: ${{ matrix.python-version }}
       - uses: snok/install-poetry@v1
         with:
           virtualenvs-create: true
@@ -27,11 +32,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .venv
-          key: venv-test-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+          key: venv-audit-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
       - name: Install Dependencies
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
         run: |
           make install-test
-      - name: Run MYPY
+      - name: Run Dependency Audit
         run: |
-          make mypy
+          make audit

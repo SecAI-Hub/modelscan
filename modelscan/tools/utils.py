@@ -58,10 +58,8 @@ def _is_zipfile(source: Union[Path, str], data: Optional[IO[bytes]] = None) -> b
     # collisions and assume the zip has only 1 file.
     # See bugs.python.org/issue28494.
     if not data:
-        data = open(source, "rb")
-        file = True
-    else:
-        file = False
+        with open(source, "rb") as file_data:
+            return _is_zipfile(source, file_data)
 
     # Read the first 4 bytes of the file
     read_bytes = []
@@ -74,8 +72,6 @@ def _is_zipfile(source: Union[Path, str], data: Optional[IO[bytes]] = None) -> b
             break
         byte = data.read(1)
     data.seek(start)
-    if file:
-        data.close()
 
     local_header_magic_number = [b"P", b"K", b"\x03", b"\x04"]
     return read_bytes == local_header_magic_number

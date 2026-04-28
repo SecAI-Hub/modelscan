@@ -56,6 +56,10 @@ lint: ## Run all the linters.
 bandit: ## Run SAST scanning.
 	poetry run bandit -c pyproject.toml -r .
 
+.PHONY: audit
+audit: ## Run dependency vulnerability scanning.
+	poetry run pip-audit --skip-editable
+
 .PHONY: mypy
 mypy: ## Run type checking.
 	poetry run mypy --ignore-missing-imports --strict --check-untyped-defs .

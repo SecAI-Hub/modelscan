@@ -1,5 +1,6 @@
 import logging
 import importlib
+import os.path
 
 from modelscan.settings import DEFAULT_SETTINGS
 
@@ -19,6 +20,7 @@ from modelscan.skip import ModelScanSkipped, SkipCategories
 from modelscan.issues import Issues, IssueSeverity
 from modelscan.scanners.scan import ScanBase
 from modelscan._version import __version__
+from modelscan.tools.archive import ArchiveLimitError, safe_zip_members
 from modelscan.tools.utils import _is_zipfile
 from modelscan.model import Model
 from modelscan.middlewares.middleware import MiddlewarePipeline, MiddlewareImportError
@@ -61,7 +63,7 @@ class ModelScan:
                 and self._settings["scanners"][scanner_path]["enabled"]
             ):
                 try:
-                    (modulename, classname) = scanner_path.rsplit(".", 1)
+                    modulename, classname = scanner_path.rsplit(".", 1)
                     imported_module = importlib.import_module(
                         name=modulename, package=classname
                     )
@@ -81,6 +83,7 @@ class ModelScan:
         if not model_path.exists():
             logger.error("Path %s does not exist", model_path)
             self._errors.append(PathError("Path is not valid", model_path))
+            return
 
         files = [model_path]
         if model_path.is_dir():
@@ -95,11 +98,15 @@ class ModelScan:
                     continue
 
                 try:
-                    with zipfile.ZipFile(model.get_stream(), "r") as zip:
-                        file_names = zip.namelist()
-                        for file_name in file_names:
-                            with zip.open(file_name, "r") as file_io:
-                                file_name = f"{model.get_source()}:{file_name}"
+                    with zipfile.ZipFile(model.get_stream(), "r") as archive:
+                        members = safe_zip_members(
+                            archive,
+                            self._settings,
+                            str(model.get_source()),
+                        )
+                        for member in members:
+                            with archive.open(member.filename, "r") as file_io:
+                                file_name = f"{model.get_source()}:{member.filename}"
                                 if _is_zipfile(file_name, data=file_io):
                                     self._errors.append(
                                         NestedZipError(
@@ -110,7 +117,7 @@ class ModelScan:
                                     continue
 
                                 yield Model(file_name, file_io)
-                except (zipfile.BadZipFile, RuntimeError) as e:
+                except (zipfile.BadZipFile, RuntimeError, ArchiveLimitError) as e:
                     logger.debug(
                         "Skipping zip file %s, due to error",
                         str(model.get_source()),
@@ -147,7 +154,7 @@ class ModelScan:
         if self._skipped:
             all_skipped_paths = [skipped.source for skipped in self._skipped]
             for path in all_paths:
-                main_file_path = str(path).split(":")[0]
+                main_file_path, _ = self._split_archive_source(path)
 
                 if main_file_path == str(path):
                     continue
@@ -161,6 +168,34 @@ class ModelScan:
                     continue
 
         return self._generate_results()
+
+    @staticmethod
+    def _split_archive_source(source: Union[str, Path]) -> tuple[str, str]:
+        source_str = str(source)
+        drive, path_without_drive = os.path.splitdrive(source_str)
+        archive_separator_index = path_without_drive.find(":")
+
+        if archive_separator_index >= 0:
+            return (
+                drive + path_without_drive[:archive_separator_index],
+                path_without_drive[archive_separator_index + 1 :],
+            )
+
+        return source_str, ""
+
+    @staticmethod
+    def _relative_source_path(source: Union[str, Path], base_path: Path) -> str:
+        source_str = str(source)
+        source_path, archive_member = ModelScan._split_archive_source(source)
+
+        try:
+            relative_path = str(Path(source_path).relative_to(base_path))
+        except ValueError:
+            relative_path = source_str
+
+        if archive_member and relative_path != source_str:
+            return f"{relative_path}:{archive_member}"
+        return relative_path
 
     def _scan_source(
         self,
@@ -223,8 +258,9 @@ class ModelScan:
     def _generate_results(self) -> Dict[str, Any]:
         report: Dict[str, Any] = {}
 
-        absolute_path = Path(self._input_path).absolute()
-        if Path(self._input_path).is_file():
+        input_path = Path(self._input_path)
+        absolute_path = input_path.absolute()
+        if input_path.is_file() or (not input_path.exists() and input_path.suffix):
             absolute_path = Path(absolute_path).parent
 
         issues_by_severity = self._issues.group_by_severity()
@@ -251,7 +287,7 @@ class ModelScan:
             scanned_files = []
             for file_name in self._scanned:
                 scanned_files.append(
-                    str(Path(file_name).relative_to(Path(absolute_path)))
+                    self._relative_source_path(file_name, absolute_path)
                 )
 
             report["summary"]["scanned"]["scanned_files"] = scanned_files
@@ -262,8 +298,9 @@ class ModelScan:
             ]
 
             for issue in report["issues"]:
-                issue["source"] = str(
-                    Path(issue["source"]).relative_to(Path(absolute_path))
+                issue["source"] = self._relative_source_path(
+                    issue["source"],
+                    absolute_path,
                 )
         else:
             report["issues"] = []
@@ -273,10 +310,9 @@ class ModelScan:
             for error in self._errors:
                 error_information = error.to_dict()
                 if "source" in error_information:
-                    error_information["source"] = str(
-                        Path(error_information["source"]).relative_to(
-                            Path(absolute_path)
-                        )
+                    error_information["source"] = self._relative_source_path(
+                        error_information["source"],
+                        absolute_path,
                     )
 
                 all_errors.append(error_information)
@@ -291,8 +327,9 @@ class ModelScan:
                 skipped_file_information = {}
                 skipped_file_information["category"] = str(skipped_file.category.name)
                 skipped_file_information["description"] = str(skipped_file.message)
-                skipped_file_information["source"] = str(
-                    Path(skipped_file.source).relative_to(Path(absolute_path))
+                skipped_file_information["source"] = self._relative_source_path(
+                    skipped_file.source,
+                    absolute_path,
                 )
                 all_skipped_files.append(skipped_file_information)
 
@@ -320,7 +357,7 @@ class ModelScan:
 
         scan_report = None
         try:
-            (modulename, classname) = reporting_module.rsplit(".", 1)
+            modulename, classname = reporting_module.rsplit(".", 1)
             imported_module = importlib.import_module(
                 name=modulename, package=classname
             )

@@ -168,27 +168,23 @@ def scan(
 )
 def create_settings(force: bool, location: Optional[str]) -> None:
     working_dir = os.getcwd()
-    settings_path = os.path.join(working_dir, "modelscan-settings.toml")
+    settings_path = Path(working_dir) / "modelscan-settings.toml"
 
     if location:
-        settings_path = location
+        settings_path = Path(location)
 
-    try:
-        open(settings_path, encoding="utf-8")
+    if settings_path.exists():
         if force:
             with open(settings_path, mode="w", encoding="utf-8") as settings_file:
                 settings_file.write(SettingsUtils.get_default_settings_as_toml())
-                settings_file.close()
         else:
             logger.warning(
                 "%s file already exists. Please use `--force` flag if you intend to overwrite it.",
                 settings_path,
             )
-
-    except FileNotFoundError:
+    else:
         with open(settings_path, mode="w", encoding="utf-8") as settings_file:
             settings_file.write(SettingsUtils.get_default_settings_as_toml())
-            settings_file.close()
 
 
 def main() -> None:

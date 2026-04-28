@@ -4,13 +4,13 @@ import logging
 from typing import List, Optional
 
 
+from modelscan.tools.archive import ArchiveLimitError, safe_zip_members
 from modelscan.error import DependencyError, ModelScanScannerError, JsonDecodeError
 from modelscan.skip import ModelScanSkipped, SkipCategories
 from modelscan.scanners.scan import ScanResults
 from modelscan.scanners.saved_model.scan import SavedModelLambdaDetectScan
 from modelscan.model import Model
 from modelscan.settings import SupportedModelFormats
-
 
 logger = logging.getLogger("modelscan")
 
@@ -29,7 +29,7 @@ class KerasLambdaDetectScan(SavedModelLambdaDetectScan):
                 [
                     DependencyError(
                         self.name(),
-                        f"To use {self.full_name()}, please install modelscan with tensorflow extras. `pip install 'modelscan[ tensorflow ]'` if you are using pip.",
+                        f"To use {self.full_name()}, please install modelscan with tensorflow extras. `pip install 'modelscan[tensorflow]'` if you are using pip.",
                         model,
                     )
                 ],
@@ -37,18 +37,23 @@ class KerasLambdaDetectScan(SavedModelLambdaDetectScan):
             )
 
         try:
-            with zipfile.ZipFile(model.get_stream(), "r") as zip:
-                file_names = zip.namelist()
-                for file_name in file_names:
-                    if file_name == "config.json":
-                        with zip.open(file_name, "r") as config_file:
+            with zipfile.ZipFile(model.get_stream(), "r") as archive:
+                members = safe_zip_members(
+                    archive,
+                    self._settings,
+                    str(model.get_source()),
+                )
+                for member in members:
+                    if member.filename == "config.json":
+                        with archive.open(member.filename, "r") as config_file:
                             model = Model(
-                                f"{model.get_source()}:{file_name}", config_file
+                                f"{model.get_source()}:{member.filename}",
+                                config_file,
                             )
                             return self.label_results(
                                 self._scan_keras_config_file(model)
                             )
-        except zipfile.BadZipFile as e:
+        except (zipfile.BadZipFile, RuntimeError, ArchiveLimitError) as e:
             return ScanResults(
                 [],
                 [],
@@ -57,7 +62,7 @@ class KerasLambdaDetectScan(SavedModelLambdaDetectScan):
                         self.name(),
                         SkipCategories.BAD_ZIP,
                         f"Skipping zip file due to error: {e}",
-                        f"{model.get_source()}:{file_name}",
+                        str(model.get_source()),
                     )
                 ],
             )

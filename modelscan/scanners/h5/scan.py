@@ -2,7 +2,6 @@ import json
 import logging
 from typing import List, Optional, Dict, Any
 
-
 try:
     import h5py
 
@@ -40,7 +39,7 @@ class H5LambdaDetectScan(SavedModelLambdaDetectScan):
                 [
                     DependencyError(
                         self.name(),
-                        f"To use {self.full_name()}, please install modelscan with h5py extras. `pip install 'modelscan[ h5py ]'` if you are using pip.",
+                        f"To use {self.full_name()}, please install modelscan with h5py extras. `pip install 'modelscan[h5py]'` if you are using pip.",
                         model,
                     )
                 ],

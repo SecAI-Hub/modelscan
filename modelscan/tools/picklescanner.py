@@ -199,6 +199,14 @@ def _build_scan_result_from_raw_globals(
     return ScanResults(issues, [], [])
 
 
+def _read_numpy_array_header(stream: IO[bytes], version: Tuple[int, int]) -> Any:
+    if version == (1, 0):
+        return np.lib.format.read_array_header_1_0(stream)
+    if version in [(2, 0), (3, 0)]:
+        return np.lib.format.read_array_header_2_0(stream)
+    raise ValueError(f"Unsupported numpy file version: {version}")
+
+
 def scan_numpy(model: Model, settings: Dict[str, Any]) -> ScanResults:
     scan_name = "numpy"
     # Code to distinguish from NumPy binary files and pickles.
@@ -227,9 +235,8 @@ def scan_numpy(model: Model, settings: Dict[str, Any]) -> ScanResults:
 
     elif magic == np.lib.format.MAGIC_PREFIX:
         # .npy file
-        version = np.lib.format.read_magic(stream)  # type: ignore[no-untyped-call]
-        np.lib.format._check_version(version)  # type: ignore[attr-defined]
-        _, _, dtype = np.lib.format._read_array_header(stream, version)  # type: ignore[attr-defined]
+        version = np.lib.format.read_magic(stream)
+        _, _, dtype = _read_numpy_array_header(stream, version)
 
         if dtype.hasobject:
             return scan_pickle_bytes(model, settings, scan_name, True, stream.tell())

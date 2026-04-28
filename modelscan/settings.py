@@ -28,6 +28,11 @@ DEFAULT_REPORTING_MODULES = {
 DEFAULT_SETTINGS = {
     "modelscan_version": __version__,
     "supported_zip_extensions": [".zip", ".npz"],
+    "archive": {
+        "max_members": 10000,
+        "max_member_size": 2147483648,
+        "max_total_uncompressed_size": 10737418240,
+    },
     "scanners": {
         "modelscan.scanners.H5LambdaDetectScan": {
             "enabled": True,

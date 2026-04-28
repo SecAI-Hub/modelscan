@@ -9,8 +9,7 @@ jobs:
   publish-modelscan:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
 
     steps:
       - name: Checkout
@@ -19,7 +18,7 @@ jobs:
           fetch-depth: 0 # Necessary to get tags
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.14"
       - uses: snok/install-poetry@v1
         with:
           virtualenvs-create: true

@@ -44,7 +44,7 @@ class SavedModelScan(ScanBase):
                 [
                     DependencyError(
                         self.name(),
-                        f"To use {self.full_name()}, please install modelscan with tensorflow extras. `pip install 'modelscan[ tensorflow ]'` if you are using pip.",
+                        f"To use {self.full_name()}, please install modelscan with tensorflow extras. `pip install 'modelscan[tensorflow]'` if you are using pip. TensorFlow wheels may not be available on every supported Python version.",
                         model,
                     )
                 ],
