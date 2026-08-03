@@ -155,7 +155,11 @@ Scanners for TensorFlow or HD5 formatted models require installation with extras
 pip install 'modelscan[tensorflow,h5py]'
 ```
 
-The TensorFlow extra is installed only on Python versions where TensorFlow publishes compatible wheels. Core model scanning remains installable on Python 3.14 while TensorFlow-specific scanners report a dependency error if TensorFlow is unavailable.
+The TensorFlow extra is installed on Python 3.11 through 3.13. Python 3.10
+cannot consume the currently patched Keras line, and TensorFlow does not yet
+publish Python 3.14 wheels. Core model scanning remains installable on both
+versions; TensorFlow-specific scanners report a dependency error when the
+extra is unavailable.
 
 ### Using ModelScan via CLI
 

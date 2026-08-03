@@ -11,7 +11,7 @@ files = [
     {file = "absl_py-2.4.0-py3-none-any.whl", hash = "sha256:88476fd881ca8aab94ffa78b7b6c632a782ab3ba1cd19c9bd423abc4fb4cd28d"},
     {file = "absl_py-2.4.0.tar.gz", hash = "sha256:8c6af82722b35cf71e0f4d1d47dcaebfff286e27110a99fc359349b247dfb5d4"},
 ]
-markers = {main = "extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\""}
+markers = {main = "python_version >= \"3.11\" and extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\" and python_version >= \"3.11\""}
 
 [[package]]
 name = "aiohappyeyeballs"
@@ -195,7 +195,7 @@ files = [
     {file = "astunparse-1.6.3-py2.py3-none-any.whl", hash = "sha256:c2652417f2c8b5bb325c885ae329bdf3f86424075c4fd1a128674bc6fba4b8e8"},
     {file = "astunparse-1.6.3.tar.gz", hash = "sha256:5ad93a8456f0d084c3456d059fd9a92cce667963232cbf763eac3bc5b7940872"},
 ]
-markers = {main = "extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\""}
+markers = {main = "python_version >= \"3.11\" and extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\" and python_version >= \"3.11\""}
 
 [package.dependencies]
 six = ">=1.6.1,<2.0"
@@ -356,7 +356,7 @@ files = [
     {file = "certifi-2026.4.22-py3-none-any.whl", hash = "sha256:3cb2210c8f88ba2318d29b0388d1023c8492ff72ecdde4ebdaddbb13a31b1c4a"},
     {file = "certifi-2026.4.22.tar.gz", hash = "sha256:8d455352a37b71bf76a79caa83a3d6c25afee4a385d632127b6afb3963f1c580"},
 ]
-markers = {main = "extra == \"tensorflow\" and python_version < \"3.14\""}
+markers = {main = "python_version >= \"3.11\" and extra == \"tensorflow\" and python_version < \"3.14\""}
 
 [[package]]
 name = "cfgv"
@@ -508,7 +508,7 @@ files = [
     {file = "charset_normalizer-3.4.7-py3-none-any.whl", hash = "sha256:3dce51d0f5e7951f8bb4900c257dad282f49190fdbebecd4ba99bcc41fef404d"},
     {file = "charset_normalizer-3.4.7.tar.gz", hash = "sha256:ae89db9e5f98a11a4bf50407d4363e7b09b31e55bc117b4f7d80aab97ba009e5"},
 ]
-markers = {main = "extra == \"tensorflow\" and python_version < \"3.14\""}
+markers = {main = "python_version >= \"3.11\" and extra == \"tensorflow\" and python_version < \"3.14\""}
 
 [[package]]
 name = "click"
@@ -758,7 +758,7 @@ groups = ["main", "test"]
 files = [
     {file = "flatbuffers-25.12.19-py2.py3-none-any.whl", hash = "sha256:7634f50c427838bb021c2d66a3d1168e9d199b0607e6329399f04846d42e20b4"},
 ]
-markers = {main = "extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\""}
+markers = {main = "python_version >= \"3.11\" and extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\" and python_version >= \"3.11\""}
 
 [[package]]
 name = "frozenlist"
@@ -951,7 +951,7 @@ files = [
     {file = "gast-0.7.0-py3-none-any.whl", hash = "sha256:99cbf1365633a74099f69c59bd650476b96baa5ef196fec88032b00b31ba36f7"},
     {file = "gast-0.7.0.tar.gz", hash = "sha256:0bb14cd1b806722e91ddbab6fb86bba148c22b40e7ff11e248974e04c8adfdae"},
 ]
-markers = {main = "extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\""}
+markers = {main = "python_version >= \"3.11\" and extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\" and python_version >= \"3.11\""}
 
 [[package]]
 name = "google-pasta"
@@ -965,7 +965,7 @@ files = [
     {file = "google_pasta-0.2.0-py2-none-any.whl", hash = "sha256:4612951da876b1a10fe3960d7226f0c7682cf901e16ac06e473b267a5afa8954"},
     {file = "google_pasta-0.2.0-py3-none-any.whl", hash = "sha256:b32482794a366b5366a32c92a9a9201b107821889935a02b3e51f6b432ea84ed"},
 ]
-markers = {main = "extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\""}
+markers = {main = "python_version >= \"3.11\" and extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\" and python_version >= \"3.11\""}
 
 [package.dependencies]
 six = "*"
@@ -1040,7 +1040,7 @@ files = [
     {file = "grpcio-1.80.0-cp39-cp39-win_amd64.whl", hash = "sha256:05d55e1798756282cddd52d56c896b3e7d673e3a8798c2f1cd05ba249a3bb4de"},
     {file = "grpcio-1.80.0.tar.gz", hash = "sha256:29aca15edd0688c22ba01d7cc01cb000d72b2033f4a3c72a81a19b56fd143257"},
 ]
-markers = {main = "extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\""}
+markers = {main = "python_version >= \"3.11\" and extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\" and python_version >= \"3.11\""}
 
 [package.dependencies]
 typing-extensions = ">=4.12,<5.0"
@@ -1083,7 +1083,7 @@ files = [
     {file = "h5py-3.14.0-cp39-cp39-win_amd64.whl", hash = "sha256:4f025cf30ae738c4c4e38c7439a761a71ccfcce04c2b87b2a2ac64e8c5171d43"},
     {file = "h5py-3.14.0.tar.gz", hash = "sha256:2372116b2e0d5d3e5e705b7f663f7c8d96fa79a4052d250484ef91d24d6a08f4"},
 ]
-markers = {main = "(extra == \"h5py\" or extra == \"tensorflow\") and python_version < \"3.14\"", test = "python_version < \"3.14\""}
+markers = {main = "(python_version >= \"3.11\" or extra == \"h5py\") and (extra == \"h5py\" or extra == \"tensorflow\") and python_version < \"3.14\"", test = "python_version < \"3.14\" and python_version >= \"3.11\""}
 
 [package.dependencies]
 numpy = ">=1.19.3"
@@ -1176,7 +1176,7 @@ files = [
     {file = "idna-3.18-py3-none-any.whl", hash = "sha256:7f952cbe720b688055e3f87de14f5c3e5fdaa8bc3928985c4077ca689de849a2"},
     {file = "idna-3.18.tar.gz", hash = "sha256:ffb385a7e039654cef1ab9ef32c6fafe283c0c0467bba1d9029738ce4a14a848"},
 ]
-markers = {main = "extra == \"tensorflow\" and python_version < \"3.14\""}
+markers = {main = "python_version >= \"3.11\" and extra == \"tensorflow\" and python_version < \"3.14\""}
 
 [package.extras]
 all = ["mypy (>=1.11.2)", "pytest (>=8.3.2)", "ruff (>=0.6.2)"]
@@ -1210,29 +1210,6 @@ MarkupSafe = ">=2.0"
 
 [package.extras]
 i18n = ["Babel (>=2.7)"]
-
-[[package]]
-name = "keras"
-version = "3.12.1"
-description = "Multi-backend Keras"
-optional = false
-python-versions = ">=3.10"
-groups = ["main", "test"]
-files = [
-    {file = "keras-3.12.1-py3-none-any.whl", hash = "sha256:c340f8a25362398b20500c64e290f6ee280c6aeec51e1044eb8d759b32dc272a"},
-    {file = "keras-3.12.1.tar.gz", hash = "sha256:3cb760b3fec105db4d893dd717daafdd0e35457a8201502c1ba8bedfaf334a71"},
-]
-markers = {main = "python_version == \"3.10\" and extra == \"tensorflow\"", test = "python_version == \"3.10\""}
-
-[package.dependencies]
-absl-py = "*"
-h5py = "*"
-ml-dtypes = "*"
-namex = "*"
-numpy = "*"
-optree = "*"
-packaging = "*"
-rich = "*"
 
 [[package]]
 name = "keras"
@@ -1276,7 +1253,7 @@ files = [
     {file = "libclang-18.1.1-py2.py3-none-win_arm64.whl", hash = "sha256:3f0e1f49f04d3cd198985fea0511576b0aee16f9ff0e0f0cad7f9c57ec3c20e8"},
     {file = "libclang-18.1.1.tar.gz", hash = "sha256:a1214966d08d73d971287fc3ead8dfaf82eb07fb197680d8b3859dbbbbf78250"},
 ]
-markers = {main = "extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\""}
+markers = {main = "python_version >= \"3.11\" and extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\" and python_version >= \"3.11\""}
 
 [[package]]
 name = "librt"
@@ -1580,11 +1557,10 @@ files = [
     {file = "ml_dtypes-0.5.4-cp39-cp39-win_amd64.whl", hash = "sha256:3d277bf3637f2a62176f4575512e9ff9ef51d00e39626d9fe4a161992f355af2"},
     {file = "ml_dtypes-0.5.4.tar.gz", hash = "sha256:8ab06a50fb9bf9666dd0fe5dfb4676fa2b0ac0f31ecff72a6c3af8e22c063453"},
 ]
-markers = {main = "extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\""}
+markers = {main = "python_version >= \"3.11\" and extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\" and python_version >= \"3.11\""}
 
 [package.dependencies]
 numpy = [
-    {version = ">=1.21.2", markers = "python_version == \"3.10\""},
     {version = ">=1.23.3", markers = "python_version == \"3.11\""},
     {version = ">=1.26.0", markers = "python_version == \"3.12\""},
     {version = ">=2.1.0", markers = "python_version >= \"3.13\""},
@@ -1938,7 +1914,7 @@ files = [
     {file = "namex-0.1.0-py3-none-any.whl", hash = "sha256:e2012a474502f1e2251267062aae3114611f07df4224b6e06334c57b0f2ce87c"},
     {file = "namex-0.1.0.tar.gz", hash = "sha256:117f03ccd302cc48e3f5c58a296838f6b89c83455ab8683a1e85f2a430aa4306"},
 ]
-markers = {main = "extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\""}
+markers = {main = "python_version >= \"3.11\" and extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\" and python_version >= \"3.11\""}
 
 [[package]]
 name = "networkx"
@@ -2027,7 +2003,7 @@ version = "2.2.6"
 description = "Fundamental package for array computing in Python"
 optional = false
 python-versions = ">=3.10"
-groups = ["main", "test"]
+groups = ["main"]
 markers = "python_version == \"3.10\""
 files = [
     {file = "numpy-2.2.6-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:b412caa66f72040e6d268491a59f2c43bf03eb6c96dd8f0307829feb7fa2b6fb"},
@@ -2172,26 +2148,12 @@ markers = {main = "python_version >= \"3.11\"", test = "python_version < \"3.14\
 
 [[package]]
 name = "nvidia-cublas"
-version = "13.1.0.3"
-description = "CUBLAS native runtime libraries"
-optional = false
-python-versions = ">=3"
-groups = ["test"]
-markers = "(sys_platform != \"linux\" or platform_machine != \"aarch64\" and platform_machine != \"x86_64\") and platform_system == \"Linux\" and (sys_platform != \"linux\" and sys_platform != \"win32\" or platform_machine != \"x86_64\")"
-files = [
-    {file = "nvidia_cublas-13.1.0.3-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:c86fc7f7ae36d7528288c5d88098edcb7b02c633d262e7ddbb86b0ad91be5df2"},
-    {file = "nvidia_cublas-13.1.0.3-py3-none-manylinux_2_27_x86_64.whl", hash = "sha256:ee8722c1f0145ab246bccb9e452153b5e0515fd094c3678df50b2a0888b8b171"},
-    {file = "nvidia_cublas-13.1.0.3-py3-none-win_amd64.whl", hash = "sha256:2a3b94a37def342471c59fad7856caee4926809a72dd5270155d6a31b5b277be"},
-]
-
-[[package]]
-name = "nvidia-cublas"
 version = "13.1.1.3"
 description = "CUBLAS native runtime libraries"
 optional = false
 python-versions = ">=3"
 groups = ["test"]
-markers = "(sys_platform == \"linux\" or sys_platform == \"win32\") and (sys_platform == \"linux\" or platform_machine == \"x86_64\") and platform_system == \"Linux\" and (platform_machine == \"aarch64\" or platform_machine == \"x86_64\")"
+markers = "platform_system == \"Linux\""
 files = [
     {file = "nvidia_cublas-13.1.1.3-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:b7a210458267ac818974c53038fbec2e969d5c99f305ab15c72522fa9f001dd5"},
     {file = "nvidia_cublas-13.1.1.3-py3-none-manylinux_2_27_x86_64.whl", hash = "sha256:37936a16db8fe4ac1f065c2139360608a543a09275cb1a1af612e08cfa065436"},
@@ -2222,7 +2184,7 @@ description = "NVRTC native runtime libraries"
 optional = false
 python-versions = ">=3"
 groups = ["test"]
-markers = "(sys_platform == \"linux\" or sys_platform == \"win32\") and (sys_platform == \"linux\" or platform_machine == \"x86_64\") and platform_system == \"Linux\" and (platform_machine == \"aarch64\" or platform_machine == \"x86_64\")"
+markers = "platform_system == \"Linux\""
 files = [
     {file = "nvidia_cuda_nvrtc-13.0.88-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl", hash = "sha256:ad9b6d2ead2435f11cbb6868809d2adeeee302e9bb94bcf0539c7a40d80e8575"},
     {file = "nvidia_cuda_nvrtc-13.0.88-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:d27f20a0ca67a4bb34268a5e951033496c5b74870b868bacd046b1b8e0c3267b"},
@@ -2419,7 +2381,7 @@ files = [
     {file = "opt_einsum-3.4.0-py3-none-any.whl", hash = "sha256:69bb92469f86a1565195ece4ac0323943e83477171b91d24c35afe028a90d7cd"},
     {file = "opt_einsum-3.4.0.tar.gz", hash = "sha256:96ca72f1b886d148241348783498194c577fa30a8faac108586b14f1ba4473ac"},
 ]
-markers = {main = "extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\""}
+markers = {main = "python_version >= \"3.11\" and extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\" and python_version >= \"3.11\""}
 
 [[package]]
 name = "optree"
@@ -2528,7 +2490,7 @@ files = [
     {file = "optree-0.19.0-pp311-pypy311_pp73-win_amd64.whl", hash = "sha256:7bcb4e3e0b2b6db57e0882f0ba6b03a07d1489887e7e75d75c42b0e2be9f0019"},
     {file = "optree-0.19.0.tar.gz", hash = "sha256:bc1991a948590756409e76be4e29efd4a487a185056d35db6c67619c19ea27a1"},
 ]
-markers = {main = "extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\""}
+markers = {main = "python_version >= \"3.11\" and extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\" and python_version >= \"3.11\""}
 
 [package.dependencies]
 typing-extensions = [
@@ -2573,7 +2535,7 @@ files = [
     {file = "packaging-26.2-py3-none-any.whl", hash = "sha256:5fc45236b9446107ff2415ce77c807cee2862cb6fac22b8a73826d0693b0980e"},
     {file = "packaging-26.2.tar.gz", hash = "sha256:ff452ff5a3e828ce110190feff1178bb1f2ea2281fa2075aadb987c2fb221661"},
 ]
-markers = {main = "extra == \"tensorflow\" and python_version < \"3.14\""}
+markers = {main = "python_version >= \"3.11\" and extra == \"tensorflow\" and python_version < \"3.14\""}
 
 [[package]]
 name = "pathspec"
@@ -2866,7 +2828,7 @@ files = [
     {file = "protobuf-7.34.1-py3-none-any.whl", hash = "sha256:bb3812cd53aefea2b028ef42bd780f5b96407247f20c6ef7c679807e9d188f11"},
     {file = "protobuf-7.34.1.tar.gz", hash = "sha256:9ce42245e704cc5027be797c1db1eb93184d44d1cdd71811fb2d9b25ad541280"},
 ]
-markers = {main = "extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\""}
+markers = {main = "python_version >= \"3.11\" and extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\" and python_version >= \"3.11\""}
 
 [[package]]
 name = "py-serializable"
@@ -3106,7 +3068,7 @@ files = [
     {file = "requests-2.34.2-py3-none-any.whl", hash = "sha256:2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0"},
     {file = "requests-2.34.2.tar.gz", hash = "sha256:f288924cae4e29463698d6d60bc6a4da69c89185ad1e0bcc4104f584e960b9ed"},
 ]
-markers = {main = "extra == \"tensorflow\" and python_version < \"3.14\""}
+markers = {main = "python_version >= \"3.11\" and extra == \"tensorflow\" and python_version < \"3.14\""}
 
 [package.dependencies]
 certifi = ">=2023.5.7"
@@ -3148,7 +3110,7 @@ files = [
     {file = "setuptools-83.0.0-py3-none-any.whl", hash = "sha256:29b23c360f22f414dc7336bb39178cc7bcbf6021ed2733cde173f09dba19abb3"},
     {file = "setuptools-83.0.0.tar.gz", hash = "sha256:025bccbbf0fa05b6192bc64ae1e7b16e001fd6d6d4d5de03c97b1c1ade523bef"},
 ]
-markers = {main = "extra == \"tensorflow\" and python_version < \"3.14\""}
+markers = {main = "python_version >= \"3.11\" and extra == \"tensorflow\" and python_version < \"3.14\""}
 
 [package.extras]
 check = ["pytest-checkdocs (>=2.14)", "pytest-ruff (>=0.2.1) ; sys_platform != \"cygwin\"", "ruff (>=0.13.0) ; sys_platform != \"cygwin\""]
@@ -3170,7 +3132,7 @@ files = [
     {file = "six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274"},
     {file = "six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81"},
 ]
-markers = {main = "extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\""}
+markers = {main = "python_version >= \"3.11\" and extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\" and python_version >= \"3.11\""}
 
 [[package]]
 name = "sortedcontainers"
@@ -3239,7 +3201,7 @@ files = [
     {file = "tensorflow-2.21.0-cp313-cp313-manylinux_2_27_x86_64.whl", hash = "sha256:e9d8da8dcab9650efb45f032ba70af2f016f907e6e0c6bda29dd101bba945406"},
     {file = "tensorflow-2.21.0-cp313-cp313-win_amd64.whl", hash = "sha256:76cccbe0a95d9392dee1ae501ae0656b6c73c1cac29a7f8f32d570e0670863f7"},
 ]
-markers = {main = "extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\""}
+markers = {main = "python_version >= \"3.11\" and extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\" and python_version >= \"3.11\""}
 
 [package.dependencies]
 absl-py = ">=1.0.0"
@@ -3278,7 +3240,7 @@ files = [
     {file = "termcolor-3.3.0-py3-none-any.whl", hash = "sha256:cf642efadaf0a8ebbbf4bc7a31cec2f9b5f21a9f726f4ccbb08192c9c26f43a5"},
     {file = "termcolor-3.3.0.tar.gz", hash = "sha256:348871ca648ec6a9a983a13ab626c0acce02f515b9e1983332b17af7979521c5"},
 ]
-markers = {main = "extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\""}
+markers = {main = "python_version >= \"3.11\" and extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\" and python_version >= \"3.11\""}
 
 [package.extras]
 tests = ["pytest", "pytest-cov"]
@@ -3290,7 +3252,7 @@ description = "Deep learning for humans."
 optional = false
 python-versions = ">=3.10"
 groups = ["test"]
-markers = "python_version < \"3.14\""
+markers = "python_version < \"3.14\" and python_version >= \"3.11\""
 files = [
     {file = "tf_keras-2.21.0-py3-none-any.whl", hash = "sha256:f858bf3d97f892304e7fbcf5eb0942ed91674e27204f940a85de8c93cf07fe62"},
     {file = "tf_keras-2.21.0.tar.gz", hash = "sha256:f9af0f2546cd5532de0fae7a481f34a1ca2253737d4cd1000f6b713dc733f770"},
@@ -3490,7 +3452,7 @@ files = [
     {file = "typing_extensions-4.15.0-py3-none-any.whl", hash = "sha256:f0fa19c6845758ab08074a0cfa8b7aecb71c999ca73d62883bc25cc018c4e548"},
     {file = "typing_extensions-4.15.0.tar.gz", hash = "sha256:0cea48d173cc12fa28ecabc3b837ea3cf6f38c6d1136f85cbaaf598984861466"},
 ]
-markers = {main = "extra == \"tensorflow\" and python_version < \"3.14\"", dev = "python_version == \"3.10\""}
+markers = {main = "python_version >= \"3.11\" and extra == \"tensorflow\" and python_version < \"3.14\"", dev = "python_version == \"3.10\""}
 
 [[package]]
 name = "urllib3"
@@ -3503,7 +3465,7 @@ files = [
     {file = "urllib3-2.7.0-py3-none-any.whl", hash = "sha256:9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897"},
     {file = "urllib3-2.7.0.tar.gz", hash = "sha256:231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c"},
 ]
-markers = {main = "extra == \"tensorflow\" and python_version < \"3.14\""}
+markers = {main = "python_version >= \"3.11\" and extra == \"tensorflow\" and python_version < \"3.14\""}
 
 [package.extras]
 brotli = ["brotli (>=1.2.0) ; platform_python_implementation == \"CPython\"", "brotlicffi (>=1.2.0.0) ; platform_python_implementation != \"CPython\""]
@@ -3541,7 +3503,7 @@ files = [
     {file = "wheel-0.47.0-py3-none-any.whl", hash = "sha256:212281cab4dff978f6cedd499cd893e1f620791ca6ff7107cf270781e587eced"},
     {file = "wheel-0.47.0.tar.gz", hash = "sha256:cc72bd1009ba0cf63922e28f94d9d83b920aa2bb28f798a31d0691b02fa3c9b3"},
 ]
-markers = {main = "extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\""}
+markers = {main = "python_version >= \"3.11\" and extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\" and python_version >= \"3.11\""}
 
 [package.dependencies]
 packaging = ">=24.0"
@@ -3645,7 +3607,7 @@ files = [
     {file = "wrapt-2.1.2-py3-none-any.whl", hash = "sha256:b8fd6fa2b2c4e7621808f8c62e8317f4aae56e59721ad933bac5239d913cf0e8"},
     {file = "wrapt-2.1.2.tar.gz", hash = "sha256:3996a67eecc2c68fd47b4e3c564405a5777367adfd9b8abb58387b63ee83b21e"},
 ]
-markers = {main = "extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\""}
+markers = {main = "python_version >= \"3.11\" and extra == \"tensorflow\" and python_version < \"3.14\"", test = "python_version < \"3.14\" and python_version >= \"3.11\""}
 
 [package.extras]
 dev = ["pytest", "setuptools"]
@@ -3800,4 +3762,4 @@ tensorflow = ["tensorflow"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.15"
-content-hash = "40d0890204ad02797bd1f44ec43978790da0d7ac33a954db603c9535a87d1c16"
+content-hash = "f252db163eb6afa3dfa27a6465a81217a5dfa1f847567b18b02b958bb39626ee"

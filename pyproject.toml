@@ -29,9 +29,10 @@ h5py = [
     { version = ">=3.16.0,<4.0.0", optional = true, markers = "python_version >= '3.14'" },
 ]
 
-# TensorFlow does not publish CPython 3.14 wheels yet. Keep the scanners optional
-# on Python 3.14 instead of blocking the rest of modelscan from installing.
-tensorflow = { version = ">=2.17,<2.22", optional = true, markers = "python_version < '3.14'" }
+# Keras security fixes require Python 3.11+, and TensorFlow does not publish
+# CPython 3.14 wheels yet. Keep the scanners optional outside Python 3.11-3.13
+# instead of forcing an unfixed Keras release or blocking core model scanning.
+tensorflow = { version = ">=2.17,<2.22", optional = true, markers = "python_version >= '3.11' and python_version < '3.14'" }
 
 [tool.poetry.extras]
 tensorflow = ["tensorflow"]
@@ -46,7 +47,7 @@ aiohttp = ">=3.14.1,<4.0.0"
 dill = ">=0.3.7,<0.5.0"
 types-requests = ">=2.33.0.20260408,<3.0.0"
 torch = ">=2.13,<3.0"
-tf-keras = { version = ">=2.21,<2.22", markers = "python_version < '3.14'" }
+tf-keras = { version = ">=2.21,<2.22", markers = "python_version >= '3.11' and python_version < '3.14'" }
 pip-audit = ">=2.10.1,<3.0.0"
 
 
