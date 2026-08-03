@@ -32,6 +32,17 @@ DEFAULT_SETTINGS = {
         "max_members": 10000,
         "max_member_size": 2147483648,
         "max_total_uncompressed_size": 10737418240,
+        "max_member_name_bytes": 4096,
+        "max_compression_ratio": 100000,
+        "max_config_json_size": 16777216,
+    },
+    "scan": {
+        "max_files": 100000,
+        "max_entries": 100000,
+        "max_depth": 64,
+        "max_path_bytes": 4096,
+        "max_file_size": 2199023255552,
+        "max_total_size": 10995116277760,
     },
     "scanners": {
         "modelscan.scanners.H5LambdaDetectScan": {

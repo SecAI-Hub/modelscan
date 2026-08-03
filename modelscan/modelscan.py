@@ -1,11 +1,14 @@
-import logging
+import copy
 import importlib
-import os.path
+import logging
+import os
+import stat
+from dataclasses import dataclass
 
 from modelscan.settings import DEFAULT_SETTINGS
 
 from pathlib import Path
-from typing import List, Union, Dict, Any, Optional, Generator
+from typing import Any, Dict, Generator, List, Optional, Union
 from datetime import datetime
 import zipfile
 
@@ -20,18 +23,30 @@ from modelscan.skip import ModelScanSkipped, SkipCategories
 from modelscan.issues import Issues, IssueSeverity
 from modelscan.scanners.scan import ScanBase
 from modelscan._version import __version__
-from modelscan.tools.archive import ArchiveLimitError, safe_zip_members
+from modelscan.tools.archive import safe_zip_members, verified_zip_member
 from modelscan.tools.utils import _is_zipfile
-from modelscan.model import Model
+from modelscan.model import FileIdentity, Model, ModelFileChangedError
 from modelscan.middlewares.middleware import MiddlewarePipeline, MiddlewareImportError
 
 logger = logging.getLogger("modelscan")
 
 
+@dataclass(frozen=True)
+class _FileCandidate:
+    path: Path
+    identity: FileIdentity
+
+
+@dataclass(frozen=True)
+class _DirectorySnapshot:
+    files: tuple[_FileCandidate, ...]
+    entries: tuple[tuple[str, str, FileIdentity], ...]
+
+
 class ModelScan:
     def __init__(
         self,
-        settings: Dict[str, Any] = DEFAULT_SETTINGS,
+        settings: Optional[Dict[str, Any]] = None,
     ) -> None:
         # Output
         self._issues = Issues()
@@ -43,9 +58,164 @@ class ModelScan:
 
         # Scanners
         self._scanners_to_run: List[ScanBase] = []
-        self._settings: Dict[str, Any] = settings
+        # Scanner and CLI code annotate settings at runtime. Keep each scan
+        # instance isolated instead of mutating DEFAULT_SETTINGS or its caller.
+        self._settings: Dict[str, Any] = copy.deepcopy(
+            DEFAULT_SETTINGS if settings is None else settings
+        )
         self._load_scanners()
         self._load_middlewares()
+
+    def _scan_limits(self) -> Dict[str, int]:
+        configured = self._settings.get("scan", {})
+        if not isinstance(configured, dict):
+            raise ValueError("scan limits must be a mapping")
+        defaults = {
+            "max_files": 100000,
+            "max_entries": 100000,
+            "max_depth": 64,
+            "max_path_bytes": 4096,
+            "max_file_size": 2 * 1024**4,
+            "max_total_size": 10 * 1024**4,
+        }
+        limits: Dict[str, int] = {}
+        for name, default in defaults.items():
+            value = configured.get(name, default)
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise ValueError(f"scan limit {name} must be a positive integer")
+            limits[name] = value
+        return limits
+
+    def _snapshot_directory(self, root: Path) -> _DirectorySnapshot:
+        """Build a bounded, no-follow identity manifest for an untrusted tree."""
+        limits = self._scan_limits()
+
+        root_metadata = root.lstat()
+        if stat.S_ISLNK(root_metadata.st_mode) or not stat.S_ISDIR(
+            root_metadata.st_mode
+        ):
+            raise ValueError("model tree root must be a non-symbolic-link directory")
+
+        files: List[_FileCandidate] = []
+        manifest: List[tuple[str, str, FileIdentity]] = [
+            (".", "directory", FileIdentity.from_stat(root_metadata))
+        ]
+        entry_count = 0
+        total_size = 0
+        pending = [(root, 0)]
+        while pending:
+            directory, parent_depth = pending.pop()
+            with os.scandir(directory) as entries:
+                for entry in entries:
+                    entry_count += 1
+                    if entry_count > limits["max_entries"]:
+                        raise ValueError(
+                            "model tree exceeds the configured entry limit"
+                        )
+                    path = Path(entry.path)
+                    relative = path.relative_to(root)
+                    if (
+                        len(relative.as_posix().encode("utf-8"))
+                        > limits["max_path_bytes"]
+                    ):
+                        raise ValueError("model tree contains an overlong path")
+                    metadata = entry.stat(follow_symlinks=False)
+                    identity = FileIdentity.from_stat(metadata)
+                    if stat.S_ISLNK(metadata.st_mode):
+                        raise ValueError(f"symbolic links are not scanned: {relative}")
+                    if stat.S_ISDIR(metadata.st_mode):
+                        depth = parent_depth + 1
+                        if depth > limits["max_depth"]:
+                            raise ValueError(
+                                "model tree exceeds the configured depth limit"
+                            )
+                        manifest.append((relative.as_posix(), "directory", identity))
+                        pending.append((path, depth))
+                    elif stat.S_ISREG(metadata.st_mode):
+                        if metadata.st_nlink != 1:
+                            raise ValueError("hard-linked model files are not scanned")
+                        if metadata.st_size > limits["max_file_size"]:
+                            raise ValueError(
+                                "model tree contains a file exceeding the configured size limit"
+                            )
+                        total_size += metadata.st_size
+                        if total_size > limits["max_total_size"]:
+                            raise ValueError(
+                                "model tree exceeds the configured total size limit"
+                            )
+                        manifest.append((relative.as_posix(), "file", identity))
+                        files.append(_FileCandidate(path, identity))
+                        if len(files) > limits["max_files"]:
+                            raise ValueError(
+                                "model tree exceeds the configured file limit"
+                            )
+                    else:
+                        raise ValueError(f"special files are not scanned: {relative}")
+        return _DirectorySnapshot(
+            files=tuple(
+                sorted(
+                    files,
+                    key=lambda candidate: candidate.path.relative_to(root).as_posix(),
+                )
+            ),
+            entries=tuple(sorted(manifest, key=lambda entry: (entry[0], entry[1]))),
+        )
+
+    def _stable_directory_snapshot(self, root: Path) -> _DirectorySnapshot:
+        first = self._snapshot_directory(root)
+        second = self._snapshot_directory(root)
+        if first.entries != second.entries:
+            raise ValueError("model tree changed while it was being enumerated")
+        return second
+
+    def _directory_files(self, root: Path) -> List[Path]:
+        """Return paths from a stable no-follow directory snapshot."""
+        return [
+            candidate.path for candidate in self._stable_directory_snapshot(root).files
+        ]
+
+    @staticmethod
+    def _source_matches_file(source: Union[str, Path], file: Path) -> bool:
+        container, _ = ModelScan._split_archive_source(source)
+        return Path(container) == file
+
+    def _discard_results_for_file(
+        self,
+        file: Path,
+        *,
+        discard_skips: bool = True,
+    ) -> None:
+        """Discard any apparent success produced from a changed/corrupt file."""
+        self._scanned = [
+            source
+            for source in self._scanned
+            if not self._source_matches_file(source, file)
+        ]
+        if discard_skips:
+            self._skipped = [
+                skipped
+                for skipped in self._skipped
+                if not self._source_matches_file(skipped.source, file)
+            ]
+        self._issues.all_issues = [
+            issue
+            for issue in self._issues.all_issues
+            if not self._source_matches_file(
+                getattr(issue.details, "source", ""),
+                file,
+            )
+        ]
+
+    def _record_integrity_error(self, file: Path, error: Exception) -> None:
+        self._discard_results_for_file(file)
+        message = f"model changed during security scan: {error}"
+        if not any(
+            isinstance(existing, PathError)
+            and existing.path == file
+            and existing.message == message
+            for existing in self._errors
+        ):
+            self._errors.append(PathError(message, file))
 
     def _load_middlewares(self) -> None:
         try:
@@ -80,57 +250,126 @@ class ModelScan:
                     )
 
     def _iterate_models(self, model_path: Path) -> Generator[Model, None, None]:
-        if not model_path.exists():
+        directory_snapshot: Optional[_DirectorySnapshot] = None
+        try:
+            metadata = model_path.lstat()
+            if stat.S_ISLNK(metadata.st_mode):
+                raise ValueError("symbolic-link model paths are not scanned")
+            candidates = [_FileCandidate(model_path, FileIdentity.from_stat(metadata))]
+            if stat.S_ISDIR(metadata.st_mode):
+                logger.debug("Path %s is a directory", str(model_path))
+                directory_snapshot = self._stable_directory_snapshot(model_path)
+                candidates = list(directory_snapshot.files)
+            elif not stat.S_ISREG(metadata.st_mode):
+                raise ValueError("model path must be a regular file or directory")
+            else:
+                limits = self._scan_limits()
+                if metadata.st_size > min(
+                    limits["max_file_size"], limits["max_total_size"]
+                ):
+                    raise ValueError("model file exceeds the configured size limit")
+                if metadata.st_nlink != 1:
+                    raise ValueError("hard-linked model files are not scanned")
+        except FileNotFoundError:
             logger.error("Path %s does not exist", model_path)
             self._errors.append(PathError("Path is not valid", model_path))
             return
+        except (OSError, UnicodeError, ValueError) as exc:
+            logger.error("Unsafe model path %s: %s", model_path, exc)
+            self._errors.append(PathError(str(exc), model_path))
+            return
 
-        files = [model_path]
-        if model_path.is_dir():
-            logger.debug("Path %s is a directory", str(model_path))
-            files = [f for f in model_path.rglob("*") if Path.is_file(f)]
-
-        for file in files:
-            with Model(file) as model:
-                yield model
-
-                if not _is_zipfile(file, model.get_stream()):
-                    continue
-
-                try:
-                    with zipfile.ZipFile(model.get_stream(), "r") as archive:
-                        members = safe_zip_members(
-                            archive,
-                            self._settings,
-                            str(model.get_source()),
+        for candidate in candidates:
+            file = candidate.path
+            try:
+                with Model(file, expected_identity=candidate.identity) as model:
+                    yield model
+                    if model.get_context("_modelscan_integrity_error"):
+                        raise ModelFileChangedError(
+                            "model identity check failed after scanner execution"
                         )
-                        for member in members:
-                            with archive.open(member.filename, "r") as file_io:
-                                file_name = f"{model.get_source()}:{member.filename}"
-                                if _is_zipfile(file_name, data=file_io):
-                                    self._errors.append(
-                                        NestedZipError(
-                                            "ModelScan does not support nested zip files.",
-                                            Path(file_name),
-                                        )
+                    model.verify_unchanged()
+
+                    if not _is_zipfile(file, model.get_stream()):
+                        continue
+
+                    try:
+                        with zipfile.ZipFile(model.get_stream(), "r") as archive:
+                            members = safe_zip_members(
+                                archive,
+                                self._settings,
+                                str(model.get_source()),
+                            )
+                            for member in members:
+                                with verified_zip_member(
+                                    archive,
+                                    member,
+                                    self._settings,
+                                    str(model.get_source()),
+                                ) as file_io:
+                                    model.verify_unchanged()
+                                    file_name = (
+                                        f"{model.get_source()}:{member.filename}"
                                     )
-                                    continue
+                                    if _is_zipfile(file_name, data=file_io):
+                                        self._errors.append(
+                                            NestedZipError(
+                                                "ModelScan does not support nested zip files.",
+                                                Path(file_name),
+                                            )
+                                        )
+                                        continue
 
-                                yield Model(file_name, file_io)
-                except (zipfile.BadZipFile, RuntimeError, ArchiveLimitError) as e:
-                    logger.debug(
-                        "Skipping zip file %s, due to error",
-                        str(model.get_source()),
-                        exc_info=True,
-                    )
-                    self._skipped.append(
-                        ModelScanSkipped(
-                            "ModelScan",
-                            SkipCategories.BAD_ZIP,
-                            f"Skipping zip file due to error: {e}",
+                                    archived_model = Model(
+                                        file_name,
+                                        file_io,
+                                        integrity_verifier=model.verify_unchanged,
+                                        integrity_source=model.get_source(),
+                                    )
+                                    yield archived_model
+                                    if archived_model.get_context(
+                                        "_modelscan_integrity_error"
+                                    ):
+                                        raise ModelFileChangedError(
+                                            "archive changed during member scanning"
+                                        )
+                                    archived_model.verify_unchanged()
+                    except ModelFileChangedError:
+                        raise
+                    except Exception as e:
+                        logger.debug(
+                            "Skipping zip file %s, due to error",
                             str(model.get_source()),
+                            exc_info=True,
                         )
+                        self._discard_results_for_file(file, discard_skips=False)
+                        self._skipped.append(
+                            ModelScanSkipped(
+                                "ModelScan",
+                                SkipCategories.BAD_ZIP,
+                                f"Skipping zip file due to error: {e}",
+                                str(model.get_source()),
+                            )
+                        )
+            except ModelFileChangedError as exc:
+                logger.error("Model path changed during scan %s: %s", file, exc)
+                self._record_integrity_error(file, exc)
+            except (OSError, ValueError) as exc:
+                logger.error("Unable to securely open model path %s: %s", file, exc)
+                self._errors.append(PathError(str(exc), file))
+
+        if directory_snapshot is not None:
+            try:
+                final_snapshot = self._stable_directory_snapshot(model_path)
+                if final_snapshot.entries != directory_snapshot.entries:
+                    raise ModelFileChangedError(
+                        "model tree changed while it was being scanned"
                     )
+            except (OSError, UnicodeError, ValueError) as exc:
+                self._issues = Issues()
+                self._scanned = []
+                self._skipped = []
+                self._record_integrity_error(model_path, exc)
 
     def scan(
         self,
@@ -149,6 +388,11 @@ class ModelScan:
         for model in self._iterate_models(model_path):
             self._middleware_pipeline.run(model)
             self._scan_source(model)
+            try:
+                model.verify_unchanged()
+            except ModelFileChangedError as exc:
+                self._record_integrity_error(model.get_integrity_source(), exc)
+                model.set_context("_modelscan_integrity_error", True)
             all_paths.append(model.get_source())
 
         if self._skipped:

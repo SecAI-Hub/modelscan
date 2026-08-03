@@ -7,31 +7,33 @@ on:
     branches: "*"
 
 permissions:
-  id-token: write
   contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0 # Necessary to get tags
-      - uses: actions/setup-python@v5
+          persist-credentials: false
+      - id: setup-python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.14"
-      - uses: snok/install-poetry@v1
+      - uses: snok/install-poetry@a783c322200f0519c7926aa6faa857c4e23e9263 # v1.4.2
         with:
           virtualenvs-create: true
           virtualenvs-in-project: true
           installer-parallel: true
       - name: Load cached venv
         id: cached-poetry-dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .venv
           key: venv-prod-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
-      - uses: mtkennerly/dunamai-action@v1
+      - uses: mtkennerly/dunamai-action@9cd4531c0025990c4b81719270f328f459834d12 # v1.3.0
         with:
           env-var: NBD_VERSION
           args: --style pep440 --format "{base}.dev{distance}+{commit}"

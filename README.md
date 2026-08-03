@@ -38,6 +38,30 @@ With it installed, scan a model:
 modelscan -p /path/to/model_file.pkl
 ```
 
+### Security boundary
+
+ModelScan is a static inspection tool, not a proof that a model is safe. Treat
+the model and every containing directory or archive as attacker controlled.
+For production intake, run ModelScan in a disposable worker with no network,
+read-only inputs, a read-only root filesystem, and strict CPU, memory, process,
+file-size, and time limits. Do not load a model in a framework merely because a
+scan returned no findings.
+
+This downstream build rejects symbolic, hard-linked, and special files; bounds
+directory walks and ZIP processing; and detects duplicate, encrypted,
+unsupported-compression, corrupt, and archive-bomb entries. Regular files are
+checked against their intake identity before opening and after each scan, while
+directory scans compare stable pre-scan and post-scan manifests. If an input
+changes, any apparent success for that input is discarded. ZIP members are
+fully materialized within configured limits so decompression, declared length,
+and CRC are verified before a scanner consumes them. Keras `config.json` has a
+separate bound. The defaults favor compatibility and should be lowered for your
+environment; see [Security audit and operations](SECURITY_AUDIT.md).
+
+These checks are a race detector, not a kernel-enforced immutable snapshot.
+Keep the intake read-only to the scanner and untrusted principals, and bind the
+admission decision to a digest computed by the registry or intake service.
+
 ## Why You Should Scan Models
 
 Models are often created from automated pipelines, others may come from a data scientist’s laptop. In either case the model needs to move from one machine to another before it is used. That process of saving a model to disk is called serialization.
@@ -75,9 +99,11 @@ ModelScan offers robust open-source scanning. If you need comprehensive AI secur
 If loading a model with your machine learning framework automatically executes the attack,
 how does ModelScan check the content without loading the malicious code?
 
-Simple, it reads the content of the file one byte at a time just like a string, looking for
-code signatures that are unsafe. This makes it incredibly fast, scanning models in the time it
-takes for your computer to process the total filesize from disk(seconds in most cases). It also secure.
+ModelScan inspects serialized structures and code references without invoking the
+normal framework model-loading path. Some optional format scanners rely on native
+parsers such as h5py or TensorFlow, so malformed inputs can still exercise complex
+third-party parsing code. Isolate and resource-limit the scanner process when
+handling untrusted artifacts.
 
 ModelScan ranks the unsafe code as:
 
@@ -163,6 +189,8 @@ The CLI exit status codes are:
 While ModelScan can be easily used via CLI, you can also integrate it directly into your Python applications or workflows.
 
 ```python
+import copy
+
 from modelscan.modelscan import ModelScan
 from modelscan.settings import DEFAULT_SETTINGS
 
@@ -189,7 +217,7 @@ You can customize the scan behavior with your own settings:
 
 ```python
 # Start with default settings and customize
-custom_settings = DEFAULT_SETTINGS.copy()
+custom_settings = copy.deepcopy(DEFAULT_SETTINGS)
 
 # Update settings as needed
 custom_settings["reporting"]["module"] = "modelscan.reporting.json_report.JSONReport"
@@ -198,6 +226,43 @@ custom_settings["reporting"]["settings"]["output_file"] = "scan_results.json"
 # Initialize with custom settings
 scanner = ModelScan(settings=custom_settings)
 ```
+
+ModelScan also deep-copies settings passed to each instance, so runtime scanner
+annotations do not mutate `DEFAULT_SETTINGS` or another scanner instance.
+
+### Resource limits
+
+The following settings bound processing of untrusted directory and ZIP inputs.
+Values are bytes unless noted:
+
+```toml
+[scan]
+max_files = 100000
+max_entries = 100000
+max_depth = 64
+max_path_bytes = 4096
+max_file_size = 2199023255552
+max_total_size = 10995116277760
+
+[archive]
+max_members = 10000
+max_member_size = 2147483648
+max_total_uncompressed_size = 10737418240
+max_member_name_bytes = 4096
+max_compression_ratio = 100000
+max_config_json_size = 16777216
+```
+
+The filesystem-size defaults and compression-ratio default are deliberately
+permissive for upstream
+compatibility. Production deployments should choose substantially smaller
+limits based on accepted model formats and worker resource budgets.
+
+ZIP inputs accept only the runtime-supported Stored, Deflate, BZIP2, and LZMA
+methods. An encrypted entry, unknown compression method, decompression failure,
+length mismatch, or CRC failure is reported through the existing `BAD_ZIP`
+skip outcome. Production admission should treat any skipped member as a failed
+scan.
 
 ### Understanding The Results
 

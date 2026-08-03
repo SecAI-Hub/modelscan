@@ -1,42 +1,158 @@
-name: Build and Publish Release to PYPI
+name: Verify, Build, and Publish Release to PyPI
 
 on:
   push:
     tags:
       - v*
 
+permissions: {}
+
 jobs:
-  publish-modelscan:
+  release-gate:
+    name: Verify release provenance
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require an annotated SemVer tag on main
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import sys
+
+          tag = os.environ["GITHUB_REF_NAME"]
+          semver = re.compile(
+              r"^v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)"
+              r"(?:-(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)"
+              r"(?:\.(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*)?$"
+          )
+          if semver.fullmatch(tag) is None:
+              print(f"release tag is not strict SemVer: {tag!r}", file=sys.stderr)
+              sys.exit(1)
+          PY
+          test "$(git cat-file -t "$GITHUB_REF")" = tag
+          test "$(git cat-file -p "$GITHUB_REF" | sed -n '2s/^type //p')" = commit
+          test "$(git rev-parse "$GITHUB_REF^{}")" = "$(git rev-parse HEAD)"
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor HEAD origin/main
+
+  release-tests:
+    name: Test Python ${{ matrix.python-version }}
+    needs: release-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          fetch-depth: 0 # Necessary to get tags
-      - uses: actions/setup-python@v5
+          persist-credentials: false
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
-          python-version: "3.14"
-      - uses: snok/install-poetry@v1
+          python-version: ${{ matrix.python-version }}
+      - name: Install Poetry
+        uses: snok/install-poetry@a783c322200f0519c7926aa6faa857c4e23e9263 # v1.4.2
         with:
           virtualenvs-create: true
           virtualenvs-in-project: true
           installer-parallel: true
-      - name: Get Release Version
-        uses: mtkennerly/dunamai-action@v1
+      - name: Verify lock file and install test dependencies
+        run: |
+          poetry check --lock
+          poetry install --with test --extras "tensorflow h5py"
+      - name: Run tests
+        run: poetry run pytest tests/
+
+  release-verification:
+    name: Security and package verification
+    needs: release-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python 3.14
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.14"
+      - name: Install Poetry
+        uses: snok/install-poetry@a783c322200f0519c7926aa6faa857c4e23e9263 # v1.4.2
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
+      - name: Verify lock file and install verification dependencies
+        run: |
+          poetry check --lock
+          poetry install --with dev --with test --extras "h5py"
+      - name: Run tests
+        run: poetry run pytest tests/
+      - name: Check formatting
+        run: poetry run black --check modelscan tests
+      - name: Run strict type checks
+        run: poetry run mypy --ignore-missing-imports --strict --check-untyped-defs .
+      - name: Run static security analysis
+        run: poetry run bandit -c pyproject.toml -r modelscan
+      - name: Audit installed dependencies
+        run: poetry run pip-audit --skip-editable
+      - name: Scan release history for secrets
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Get release version
+        uses: mtkennerly/dunamai-action@9cd4531c0025990c4b81719270f328f459834d12 # v1.3.0
         with:
           env-var: MODELSCAN_VERSION
           args: --style semver --format "{base}"
-      - name: Set Package Version
+      - name: Set and verify package version
         run: |
           echo "__version__ = '$MODELSCAN_VERSION'" > modelscan/_version.py
-          poetry version $MODELSCAN_VERSION
-      - name: Build Package
-        run: |
-          poetry build
-      - name: Publish Package to PYPI
-        run: |
-          poetry config pypi-token.pypi ${{ secrets.MODELSCAN_PYPI_API_TOKEN }}
-          poetry publish
+          poetry version "$MODELSCAN_VERSION"
+          poetry check --lock
+      - name: Build verified package artifacts
+        run: poetry build
+      - name: Upload verified package artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: modelscan-release
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 1
+
+  publish-modelscan:
+    name: Publish verified artifacts
+    needs: [release-tests, release-verification]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: pypi
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download verified package artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: modelscan-release
+          path: dist
+      - name: Publish package to PyPI with trusted publishing
+        uses: pypa/gh-action-pypi-publish@ec4db0b4ddc65acdf4bff5fa45ac92d78b56bdf0 # v1.9.0

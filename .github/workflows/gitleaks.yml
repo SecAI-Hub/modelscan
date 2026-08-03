@@ -1,4 +1,4 @@
-name: Lint with Black
+name: Secret Scan
 
 on:
   push:
@@ -10,13 +10,15 @@ permissions:
   contents: read
 
 jobs:
-  lint:
+  gitleaks:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          fetch-depth: 0
           persist-credentials: false
-      - uses: psf/black@87928e6d6761a4a6d22250e1fee5601b3998086e # 26.5.1
-        with:
-          version: "26.5.1"
+      - name: Scan repository for secrets
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -4,7 +4,11 @@ import logging
 from typing import List, Optional
 
 
-from modelscan.tools.archive import ArchiveLimitError, safe_zip_members
+from modelscan.tools.archive import (
+    max_config_json_size,
+    safe_zip_members,
+    verified_zip_member,
+)
 from modelscan.error import DependencyError, ModelScanScannerError, JsonDecodeError
 from modelscan.skip import ModelScanSkipped, SkipCategories
 from modelscan.scanners.scan import ScanResults
@@ -45,7 +49,12 @@ class KerasLambdaDetectScan(SavedModelLambdaDetectScan):
                 )
                 for member in members:
                     if member.filename == "config.json":
-                        with archive.open(member.filename, "r") as config_file:
+                        with verified_zip_member(
+                            archive,
+                            member,
+                            self._settings,
+                            str(model.get_source()),
+                        ) as config_file:
                             model = Model(
                                 f"{model.get_source()}:{member.filename}",
                                 config_file,
@@ -53,7 +62,7 @@ class KerasLambdaDetectScan(SavedModelLambdaDetectScan):
                             return self.label_results(
                                 self._scan_keras_config_file(model)
                             )
-        except (zipfile.BadZipFile, RuntimeError, ArchiveLimitError) as e:
+        except Exception as e:
             return ScanResults(
                 [],
                 [],
@@ -87,7 +96,12 @@ class KerasLambdaDetectScan(SavedModelLambdaDetectScan):
 
         try:
             operators_in_model = self._get_keras_operator_names(model)
-        except json.JSONDecodeError as e:
+        except (
+            json.JSONDecodeError,
+            UnicodeDecodeError,
+            RecursionError,
+            ValueError,
+        ) as e:
             logger.error(
                 f"Not a valid JSON data from source: {model.get_source()}, error: {e}"
             )
@@ -122,7 +136,13 @@ class KerasLambdaDetectScan(SavedModelLambdaDetectScan):
             )
 
     def _get_keras_operator_names(self, model: Model) -> List[str]:
-        model_config_data = json.load(model.get_stream())
+        limit = max_config_json_size(self._settings)
+        raw = model.get_stream().read(limit + 1)
+        if len(raw) > limit:
+            raise ValueError("Keras config.json exceeds the configured size limit")
+        model_config_data = json.loads(raw.decode("utf-8", errors="strict"))
+        if not isinstance(model_config_data, dict):
+            raise ValueError("Keras config.json root must be an object")
 
         lambda_layers = [
             layer.get("config", {}).get("function", {})

@@ -136,3 +136,17 @@ pytorch-model-scan-results.json
 
 # Code Coverage
 cov.xml
+
+# Local secrets and signing material
+.env.*
+!.env.example
+*.token
+*.key
+*.pem
+*.p12
+*.pfx
+secrets/
+credentials/
+*.db
+*.sqlite
+*.sqlite3
