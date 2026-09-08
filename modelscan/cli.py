@@ -70,7 +70,7 @@ def cli() -> None:
 @click.option(
     "--settings-file",
     type=click.Path(exists=True, dir_okay=False),
-    help="Specify a settings file to use for the scan. Defaults to ./modelscan-settings.toml.",
+    help="Explicitly trust this settings file (it may load Python plugins). Defaults to built-in settings.",
 )
 @click.option(
     "-r",
@@ -105,19 +105,20 @@ def scan(
     if log is not None:
         logger.setLevel(getattr(logging, log))
 
-    settings_file_path = Path(
-        settings_file if settings_file else f"{os.getcwd()}/modelscan-settings.toml"
-    )
-
+    # A scan target/current directory is untrusted input. Configuration can
+    # select executable Python plugins, so only an explicit operator choice
+    # may load it. A model archive cannot opt itself into scanner code.
     settings = DEFAULT_SETTINGS
-
-    if settings_file_path and settings_file_path.is_file():
-        with open(settings_file_path, encoding="utf-8") as sf:
-            settings = parse(sf.read()).unwrap()
-            click.echo(f"Detected settings file. Using {settings_file_path}. \n")
+    if settings_file is not None:
+        settings_file_path = Path(settings_file)
+        if settings_file_path.stat().st_size > 1 << 20:
+            raise click.UsageError("Settings file exceeds the 1 MiB limit")
+        with settings_file_path.open(encoding="utf-8") as sf:
+            settings = parse(sf.read(1 << 20)).unwrap()
+        click.echo(f"Using explicitly trusted settings: {settings_file_path}.\n")
     else:
         click.echo(
-            f"No settings file detected at {settings_file_path}. Using defaults. \n"
+            "Using built-in settings (no implicit current-directory configuration).\n"
         )
 
     modelscan = ModelScan(settings=settings)

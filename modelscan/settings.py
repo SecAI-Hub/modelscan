@@ -43,6 +43,10 @@ DEFAULT_SETTINGS = {
         "max_path_bytes": 4096,
         "max_file_size": 2199023255552,
         "max_total_size": 10995116277760,
+        "max_pickle_bytes": 67108864,
+        "max_pickle_argument_bytes": 1048576,
+        "max_pickle_opcodes": 200000,
+        "max_pickle_memo_entries": 100000,
     },
     "scanners": {
         "modelscan.scanners.H5LambdaDetectScan": {
@@ -135,6 +139,11 @@ DEFAULT_SETTINGS = {
             "posix": "*",  # Alias for 'os' on Linux. Includes os.system()
             "socket": "*",
             "subprocess": "*",
+            "ctypes": "*",
+            "_ctypes": "*",
+            "numpy.ctypeslib": "*",
+            "importlib": "*",
+            "importlib.machinery": "*",
             "sys": "*",
             "operator": [
                 "attrgetter",  # Ex of code execution: operator.attrgetter("system")(__import__("os"))("echo pwned")
@@ -166,7 +175,17 @@ DEFAULT_SETTINGS = {
 class SettingsUtils:
     @staticmethod
     def get_default_settings_as_toml() -> Any:
-        toml_settings = tomlkit.dumps(DEFAULT_SETTINGS)
+        def serializable(value: Any) -> Any:
+            if isinstance(value, dict):
+                return {
+                    key.name if isinstance(key, Property) else key: serializable(item)
+                    for key, item in value.items()
+                }
+            if isinstance(value, list):
+                return [serializable(item) for item in value]
+            return value
+
+        toml_settings = tomlkit.dumps(serializable(DEFAULT_SETTINGS))
 
         # Add settings file header
         toml_settings = f"# ModelScan settings file\n\n{toml_settings}"

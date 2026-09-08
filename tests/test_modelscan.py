@@ -1365,7 +1365,6 @@ def test_scan_directory_path(file_path: str) -> None:
         "malicious11.pkl",
         "malicious12.pkl",
         "malicious13.pkl",
-        "malicious14.pkl",
         "malicious15.pkl",
         "malicious1_v0.dill",
         "malicious1_v3.dill",
@@ -1397,7 +1396,11 @@ def test_scan_directory_path(file_path: str) -> None:
             "source": "password_protected.zip",
         },
     ]
-    assert results["errors"] == []
+    # This multi-stream fixture contains a malformed suffix. Preserve its
+    # known dangerous operation above without counting it as complete.
+    assert len(results["errors"]) == 1
+    assert results["errors"][0]["category"] == "PICKLE_GENOPS"
+    assert results["errors"][0]["source"] == "malicious14.pkl"
 
 
 @pytest.mark.parametrize(

@@ -337,3 +337,42 @@ We appreciate the work and have extended it significantly with ModelScan. ModelS
 
 We would love to have you contribute to our open source ModelScan project.
 If you would like to contribute, please follow the details on [Contribution page](https://github.com/protectai/modelscan/blob/main/CONTRIBUTING.md).
+
+
+### Trusted settings and bounded pickle inspection
+
+A scan uses built-in settings unless `--settings-file /trusted/path/settings.toml`
+is supplied explicitly. Settings may import Python scanner, middleware and report
+plugins and must be reviewed as executable code. Run the installed CLI from a
+trusted directory; for module invocation use an isolated interpreter
+(`python -I -m modelscan.cli -p /path/to/model`). A settings file shipped alongside
+an untrusted model is never loaded automatically. `create-settings-file` produces
+settings that can be loaded again without losing format mappings.
+
+Pickle inspection is limited to 64 MiB of parser reads, 1 MiB per argument,
+200,000 opcodes and 100,000 memo entries. The corresponding `scan.max_pickle_*`
+settings may lower these limits. Exceeding a limit, malformed trailing streams,
+or incomplete parsing produces an error alongside any known findings; it never
+counts as a completed clean scan. Use supported data-only formats when an artifact
+cannot be inspected within these bounds. Dynamic-library loaders (`ctypes`,
+`_ctypes`, `numpy.ctypeslib`) and import machinery are reported as critical.
+Absence of known unsafe operations remains a heuristic result and does not
+authorize deserializing untrusted pickle.
+
+
+### NumPy header inspection
+
+NPY headers are limited to 10,000 encoded bytes before their contents are read.
+Tighter trusted pickle byte/argument settings also constrain the header. NPY 1.0
+and 2.0 retain their public readers' literal parsing, including legacy forms;
+NPY 3.0 headers are decoded as UTF-8, preserving Unicode field names. Shape
+dimensions must be genuine non-negative integers in every version: boolean and
+negative dimensions previously accepted by the public 1.0/2.0 readers now fail.
+Invalid or unsupported headers produce scan errors rather than completed clean
+results.
+
+Object-containing dtypes route their payload to the same bounded pickle
+inspection at the original payload offset. No array or pickle loader is invoked.
+Numeric tensor bodies are not loaded or checked for physical completeness by
+this header scan. Nonseekable model streams are unsupported; existing ZIP and
+raw-pickle handling remain separate from header validation.

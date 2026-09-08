@@ -474,15 +474,12 @@ class ModelScan:
                     model.get_source(),
                     scanner.full_name(),
                 )
-                if scan_results.errors:
-                    self._errors.extend(scan_results.errors)
-                elif scan_results.issues:
-                    self._scanned.append(str(model.get_source()))
-                    self._issues.add_issues(scan_results.issues)
-
-                elif scan_results.skipped:
-                    self._skipped.extend(scan_results.skipped)
-                else:
+                # Partial scans can carry both known findings and errors.
+                # Preserve both, and count completion only with full coverage.
+                self._errors.extend(scan_results.errors)
+                self._issues.add_issues(scan_results.issues)
+                self._skipped.extend(scan_results.skipped)
+                if not scan_results.errors and not scan_results.skipped:
                     self._scanned.append(str(model.get_source()))
 
         if not scanned:

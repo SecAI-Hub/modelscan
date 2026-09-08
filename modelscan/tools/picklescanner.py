@@ -1,7 +1,10 @@
+import ast
+import io
 import logging
+import struct
 import pickletools  # nosec
 from tarfile import TarError
-from typing import IO, Any, Dict, List, Set, Tuple, Union, Optional
+from typing import IO, Any, Dict, List, Set, Tuple, Union, Optional, cast
 
 import numpy as np
 
@@ -47,28 +50,81 @@ class GenOpsError(Exception):
 #
 
 
+class _BoundedPickleReader:
+    """Bound lengths before pickletools can allocate an attacker-sized value."""
+
+    def __init__(self, stream: IO[bytes], total: int, argument: int) -> None:
+        self.stream = stream
+        self.remaining = total
+        self.argument = argument
+
+    def read(self, size: int = -1) -> bytes:
+        if size < 0 or size > self.argument or size > self.remaining:
+            raise ValueError("pickle byte or argument limit exceeded")
+        value = self.stream.read(size)
+        self.remaining -= len(value)
+        return value
+
+    def readline(self, size: int = -1) -> bytes:
+        limit = min(self.argument, self.remaining)
+        if size >= 0:
+            limit = min(limit, size)
+        value = self.stream.readline(limit + 1)
+        if len(value) > limit:
+            raise ValueError("pickle line or byte limit exceeded")
+        self.remaining -= len(value)
+        return value
+
+    def tell(self) -> int:
+        return self.stream.tell()
+
+    def seek(self, offset: int, whence: int = 0) -> int:
+        return self.stream.seek(offset, whence)
+
+
+def _pickle_limits(settings: Dict[str, Any]) -> Dict[str, int]:
+    limits = {
+        "max_pickle_bytes": 64 * 1024 * 1024,
+        "max_pickle_argument_bytes": 1024 * 1024,
+        "max_pickle_opcodes": 200000,
+        "max_pickle_memo_entries": 100000,
+    }
+    configured = settings.get("scan", {})
+    if not isinstance(configured, dict):
+        raise ValueError("pickle scan limits must be a mapping")
+    for key, maximum in limits.items():
+        value = configured.get(key, maximum)
+        if type(value) is not int or not 0 < value <= maximum:
+            raise ValueError(f"{key} must be an integer from 1 to {maximum}")
+        limits[key] = value
+    return limits
+
+
 def _list_globals(
-    data: IO[bytes], multiple_pickles: bool = True
+    data: IO[bytes],
+    multiple_pickles: bool = True,
+    settings: Optional[Dict[str, Any]] = None,
 ) -> Set[Tuple[str, str]]:
     globals: Set[Any] = set()
+    limits = _pickle_limits(settings or {})
+    data = _BoundedPickleReader(data, limits["max_pickle_bytes"], limits["max_pickle_argument_bytes"])  # type: ignore[assignment]
+    opcode_count = 0
 
     memo: Dict[Union[int, str], str] = {}
     # Scan the data for pickle buffers, stopping when parsing fails or stops making progress
     last_byte = b"dummy"
     while last_byte != b"":
-        # List opcodes
+        # Keep known operations even when a later opcode is malformed.
+        parse_error = None
         try:
-            ops: List[Tuple[Any, Any, Union[int, None]]] = list(
-                pickletools.genops(data)
-            )
+            ops: List[Tuple[Any, Any, Union[int, None]]] = []
+            for op in pickletools.genops(data):
+                opcode_count += 1
+                if opcode_count > limits["max_pickle_opcodes"]:
+                    raise ValueError("pickle opcode limit exceeded")
+                ops.append(op)
         except Exception as e:
-            # Given we can have multiple pickles in a file, we may have already successfully extracted globals from a valid pickle.
-            # Thus return the already found globals in the error & let the caller decide what to do.
-            globals_opt = globals if len(globals) > 0 else None
-            raise GenOpsError(str(e), globals_opt)
-
-        last_byte = data.read(1)
-        data.seek(-1, 1)
+            parse_error = str(e)
 
         # Extract global imports
         for n in range(len(ops)):
@@ -76,6 +132,11 @@ def _list_globals(
             op_name = op[0].name
             op_value: str = op[1]
 
+            if (
+                op_name in {"MEMOIZE", "PUT", "BINPUT", "LONG_BINPUT"}
+                and len(memo) >= limits["max_pickle_memo_entries"]
+            ):
+                raise GenOpsError("pickle memo limit exceeded", globals or None)
             if op_name == "MEMOIZE" and n > 0:
                 memo[len(memo)] = ops[n - 1][1]
             elif op_name in ["PUT", "BINPUT", "LONG_BINPUT"] and n > 0:
@@ -113,8 +174,16 @@ def _list_globals(
                         f"Found {len(values)} values for STACK_GLOBAL at position {n} instead of 2."
                     )
                 globals.add((values[1], values[0]))
+        if parse_error is not None:
+            raise GenOpsError(parse_error, globals or None)
         if not multiple_pickles:
             break
+        try:
+            last_byte = data.read(1)
+            if last_byte:
+                data.seek(-1, 1)
+        except ValueError as exc:
+            raise GenOpsError(str(exc), globals or None) from exc
 
     return globals
 
@@ -129,14 +198,16 @@ def scan_pickle_bytes(
     """Disassemble a Pickle stream and report issues"""
     issues: List[Issue] = []
     try:
-        raw_globals = _list_globals(model.get_stream(offset), multiple_pickles)
+        raw_globals = _list_globals(
+            model.get_stream(offset), multiple_pickles, settings
+        )
     except GenOpsError as e:
         if e.globals is not None:
-            return _build_scan_result_from_raw_globals(
-                e.globals,
-                model,
-                settings,
+            partial = _build_scan_result_from_raw_globals(e.globals, model, settings)
+            partial.errors.append(
+                PickleGenopsError(scan_name, f"Parsing error: {e}", model)
             )
+            return partial
         return ScanResults(
             issues,
             [
@@ -199,22 +270,113 @@ def _build_scan_result_from_raw_globals(
     return ScanResults(issues, [], [])
 
 
-def _read_numpy_array_header(stream: IO[bytes], version: Tuple[int, int]) -> Any:
-    if version == (1, 0):
-        return np.lib.format.read_array_header_1_0(stream)
-    if version in [(2, 0), (3, 0)]:
-        return np.lib.format.read_array_header_2_0(stream)
-    raise ValueError(f"Unsupported numpy file version: {version}")
+_MAX_NUMPY_HEADER_BYTES = 10_000
+
+
+def _read_numpy_bytes(
+    stream: IO[bytes], size: int, *, allow_eof: bool = False
+) -> bytes:
+    """Read a previously bounded field, including streams that return short reads."""
+    if type(size) is not int or not 0 <= size <= _MAX_NUMPY_HEADER_BYTES:
+        raise ValueError("NumPy read size is outside the header bound")
+    chunks = []
+    remaining = size
+    while remaining:
+        chunk = stream.read(remaining)
+        if not isinstance(chunk, bytes) or len(chunk) > remaining:
+            raise ValueError("NumPy stream returned an invalid byte chunk")
+        if not chunk:
+            if allow_eof:
+                break
+            raise ValueError("Truncated NumPy header")
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    return b"".join(chunks)
+
+
+def _read_numpy_array_header(
+    stream: IO[bytes],
+    version: Tuple[int, int],
+    settings: Optional[Dict[str, Any]] = None,
+) -> Any:
+    """Validate an NPY header without letting its length control an unbounded read.
+
+    Public NumPy readers cover versions 1 and 2, including their legacy literal
+    compatibility. Version 3 requires UTF-8; reading it as version 2 corrupts
+    Unicode field names. Only bounded literals and public dtype decoding are used.
+    """
+    if version not in ((1, 0), (2, 0), (3, 0)):
+        raise ValueError(f"Unsupported numpy file version: {version}")
+    limits = _pickle_limits({} if settings is None else settings)
+    maximum = min(
+        _MAX_NUMPY_HEADER_BYTES,
+        limits["max_pickle_argument_bytes"],
+        limits["max_pickle_bytes"],
+    )
+    length_format = "<H" if version == (1, 0) else "<I"
+    length_bytes = _read_numpy_bytes(stream, struct.calcsize(length_format))
+    header_length = struct.unpack(length_format, length_bytes)[0]
+    if not 0 < header_length <= maximum:
+        raise ValueError(
+            f"NumPy header byte limit exceeded or empty (maximum {maximum})"
+        )
+    header = _read_numpy_bytes(stream, header_length)
+    try:
+        if version in ((1, 0), (2, 0)):
+            bounded = io.BytesIO(length_bytes + header)
+            reader = (
+                np.lib.format.read_array_header_1_0
+                if version == (1, 0)
+                else np.lib.format.read_array_header_2_0
+            )
+            shape, fortran_order, dtype = reader(bounded, max_header_size=maximum)
+        else:
+            expression = ast.parse(header.decode("utf-8").lstrip(" \t"), mode="eval")
+            if not isinstance(expression.body, ast.Dict):
+                raise ValueError("NumPy header must be a literal dictionary")
+            names = []
+            for key in expression.body.keys:
+                if not isinstance(key, ast.Constant) or type(key.value) is not str:
+                    raise ValueError("NumPy header keys must be literal strings")
+                names.append(key.value)
+            if len(names) != 3 or set(names) != {"descr", "fortran_order", "shape"}:
+                raise ValueError(
+                    "NumPy header keys are duplicate, missing, extra or invalid"
+                )
+            values = ast.literal_eval(expression)
+            shape, fortran_order = values["shape"], values["fortran_order"]
+            if not isinstance(values["descr"], (str, list, tuple)):
+                raise ValueError("NumPy dtype descriptor is invalid")
+            # The public API accepts string/tuple descriptors too; NumPy's
+            # older type stubs list only structured-list descriptors.
+            dtype = np.lib.format.descr_to_dtype(cast(Any, values["descr"]))
+        if type(shape) is not tuple or any(
+            type(dimension) is not int or dimension < 0 for dimension in shape
+        ):
+            raise ValueError("NumPy shape must contain non-negative integer dimensions")
+        if type(fortran_order) is not bool:
+            raise ValueError("NumPy fortran_order must be a boolean")
+    except (
+        SyntaxError,
+        UnicodeError,
+        TypeError,
+        ValueError,
+        OverflowError,
+        RecursionError,
+    ) as error:
+        raise ValueError(f"Invalid NumPy header: {error}") from error
+    return shape, fortran_order, dtype
 
 
 def scan_numpy(model: Model, settings: Dict[str, Any]) -> ScanResults:
+    """Inspect headers and object pickles; numeric tensor bodies are not loaded."""
     scan_name = "numpy"
     # Code to distinguish from NumPy binary files and pickles.
     _ZIP_PREFIX = b"PK\x03\x04"
     _ZIP_SUFFIX = b"PK\x05\x06"  # empty zip files start with this
     N = len(np.lib.format.MAGIC_PREFIX)
     stream = model.get_stream()
-    magic = stream.read(N)
+    magic = _read_numpy_bytes(stream, N, allow_eof=True)
     # If the file size is less than N, we need to make sure not
     # to seek past the beginning of the file
     stream.seek(-min(N, len(magic)), 1)  # back-up
@@ -236,7 +398,7 @@ def scan_numpy(model: Model, settings: Dict[str, Any]) -> ScanResults:
     elif magic == np.lib.format.MAGIC_PREFIX:
         # .npy file
         version = np.lib.format.read_magic(stream)
-        _, _, dtype = _read_numpy_array_header(stream, version)
+        _, _, dtype = _read_numpy_array_header(stream, version, settings)
 
         if dtype.hasobject:
             return scan_pickle_bytes(model, settings, scan_name, True, stream.tell())
